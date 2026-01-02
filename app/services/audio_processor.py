@@ -116,13 +116,18 @@ class AudioProcessor:
         """Run the actual FFmpeg conversion (blocking)."""
         stream = ffmpeg.input(str(input_path))
         
+        # Apply normalization if enabled (loudnorm is best for speech consistency)
+        if settings.enable_loudnorm:
+            logger.info("Applying loudnorm normalization...")
+            stream = stream.filter('loudnorm', I=-16, TP=-1.5, LRA=11)
+            
         # Apply noise reduction if enabled
         if settings.enable_noise_reduction:
-            logger.info("Applying noise reduction to audio...")
-            # afftdn: Audio FFT Denoiser
-            # highpass: Remove low-frequency hum/rumble (below 100Hz)
-            stream = stream.filter('afftdn', nr=10, nt='w')
-            stream = stream.filter('highpass', f=100)
+            logger.info(f"Applying advanced noise reduction (anlmdn, level={settings.noise_reduction_level})...")
+            # anlmdn: Adaptive Non-Local Means Denoiser (usually better than afftdn for speech)
+            # highpass: Remove low-frequency hum/rumble (below 80Hz)
+            stream = stream.filter('anlmdn', s=settings.noise_reduction_level)
+            stream = stream.filter('highpass', f=80)
         
         (
             stream

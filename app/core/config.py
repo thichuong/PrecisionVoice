@@ -38,6 +38,19 @@ class Settings(BaseSettings):
     sample_rate: int = 16000
     channels: int = 1  # Mono
     
+    # Optimization parameters
+    noise_reduction_level: float = 12.0  # Used by anlmdn
+    enable_loudnorm: bool = True
+    
+    # VAD parameters
+    vad_threshold: float = 0.5
+    vad_min_speech_duration_ms: int = 250
+    vad_min_silence_duration_ms: int = 500
+    
+    # Post-processing
+    merge_threshold_s: float = 0.5  # Merge segments from same speaker if gap < this
+    min_segment_duration_s: float = 0.3  # Remove segments shorter than this
+    
     # Server settings
     host: str = "0.0.0.0"
     port: int = 8000

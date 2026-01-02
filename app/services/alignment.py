@@ -219,6 +219,44 @@ class AlignmentService:
         return segments
     
     @classmethod
+    def resize_and_merge_segments(
+        cls,
+        segments: List[TranscriptSegment]
+    ) -> List[TranscriptSegment]:
+        """
+        Merge consecutive segments of the same speaker if the gap is small.
+        Also filters out extremely short segments.
+        """
+        if not segments:
+            return []
+            
+        # Filter 1: Remove extremely short blips (noise)
+        segments = [s for s in segments if (s.end - s.start) >= settings.min_segment_duration_s]
+        
+        if not segments:
+            return []
+            
+        merged = []
+        curr = segments[0]
+        
+        for i in range(1, len(segments)):
+            next_seg = segments[i]
+            
+            # If same speaker and gap is small, merge
+            gap = next_seg.start - curr.end
+            if next_seg.speaker == curr.speaker and gap < settings.merge_threshold_s:
+                curr.end = next_seg.end
+                curr.text += " " + next_seg.text
+            else:
+                merged.append(curr)
+                curr = next_seg
+                
+        merged.append(curr)
+        
+        logger.info(f"Merged segments: {len(segments)} -> {len(merged)}")
+        return merged
+
+    @classmethod
     def align_precision(
         cls,
         words: List[WordTimestamp],
@@ -239,6 +277,9 @@ class AlignmentService:
         
         # Step 3d: Reconstruct segments
         segments = cls.reconstruct_segments(words_with_speakers)
+        
+        # Step 3e: Clustering/Merging (Optimization)
+        segments = cls.resize_and_merge_segments(segments)
         
         return segments
     

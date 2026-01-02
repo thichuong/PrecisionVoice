@@ -21,6 +21,17 @@ services:
       - DEVICE=${DEVICE:-auto}
       # Upload settings
       - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-100}
+      # Optimization settings
+      - NOISE_REDUCTION_LEVEL=${NOISE_REDUCTION_LEVEL:-12.0}
+      - ENABLE_LOUDNORM=${ENABLE_LOUDNORM:-True}
+      - ENABLE_NOISE_REDUCTION=${ENABLE_NOISE_REDUCTION:-True}
+      # VAD settings
+      - VAD_THRESHOLD=${VAD_THRESHOLD:-0.5}
+      - VAD_MIN_SPEECH_DURATION_MS=${VAD_MIN_SPEECH_DURATION_MS:-250}
+      - VAD_MIN_SILENCE_DURATION_MS=${VAD_MIN_SILENCE_DURATION_MS:-500}
+      # Clustering settings
+      - MERGE_THRESHOLD_S=${MERGE_THRESHOLD_S:-0.5}
+      - MIN_SEGMENT_DURATION_S=${MIN_SEGMENT_DURATION_S:-0.3}
     restart: unless-stopped
     # GPU support (uncomment for NVIDIA GPU)
     # deploy:

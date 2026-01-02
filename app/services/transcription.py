@@ -104,7 +104,12 @@ class TranscriptionService:
             language=language,
             initial_prompt=initial_prompt,
             word_timestamps=True,  # CRITICAL: Enable word-level timestamps
-            vad_filter=False,  # Disabled - was filtering out too much audio
+            vad_filter=True,  # Re-enabled for optimization
+            vad_parameters=dict(
+                threshold=settings.vad_threshold,
+                min_speech_duration_ms=settings.vad_min_speech_duration_ms,
+                min_silence_duration_ms=settings.vad_min_silence_duration_ms,
+            ),
             beam_size=5,
             best_of=5,
         )
