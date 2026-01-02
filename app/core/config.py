@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     enable_noise_reduction: bool = True
     
     # Model settings
-    whisper_model: str = "suzii/vi-whisper-large-v3-turbo-v1-ct2"
+    whisper_model: str = "kiendt/PhoWhisper-large-ct2"
     diarization_model: str = "pyannote/speaker-diarization-3.1"
     
     # Device settings
