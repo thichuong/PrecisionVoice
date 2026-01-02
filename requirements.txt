@@ -1,0 +1,27 @@
+# Core framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+jinja2>=3.1.2
+aiofiles>=23.2.1
+
+# AI/ML - Speech-to-Text
+faster-whisper>=1.0.0
+ctranslate2>=4.0.0
+
+# AI/ML - Speaker Diarization
+pyannote.audio>=3.1.0
+torch>=2.1.0
+torchaudio>=2.1.0
+
+# Audio processing
+ffmpeg-python>=0.2.0
+pydub>=0.25.1
+
+# Configuration
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# Utilities
+aiohttp>=3.9.0
+numpy>=1.24.0

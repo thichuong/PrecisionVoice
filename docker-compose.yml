@@ -1,0 +1,36 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: precisionvoice
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist uploaded/processed files
+      - ./data:/app/data
+      # Cache HuggingFace models to avoid re-downloading
+      - model_cache:/root/.cache/huggingface
+    environment:
+      # HuggingFace token (required for pyannote.audio)
+      - HF_TOKEN=${HF_TOKEN:-}
+      # Model settings
+      - WHISPER_MODEL=${WHISPER_MODEL:-suzii/vi-whisper-large-v3-turbo-v1-ct2}
+      - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
+      # Device (auto, cuda, cpu)
+      - DEVICE=${DEVICE:-auto}
+      # Upload settings
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-100}
+    restart: unless-stopped
+    # GPU support (uncomment for NVIDIA GPU)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  model_cache:
+    name: precisionvoice_model_cache

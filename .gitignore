@@ -1,0 +1,46 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.venv/
+ENV/
+
+# Environment files
+.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Data directories (keep structure, ignore content)
+data/uploads/*
+data/processed/*
+!data/uploads/.gitkeep
+!data/processed/.gitkeep
+
+# Docker
+.docker/
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+*.cache
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model files (will be downloaded at runtime)
+*.pt
+*.bin
+*.safetensors
