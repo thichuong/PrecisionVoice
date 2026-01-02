@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Processing
         processingStatus: document.getElementById('processing-status'),
         progressFill: document.getElementById('progress-fill'),
+        processingTimer: document.getElementById('processing-timer'),
 
         // Results
         speakerCount: document.getElementById('speaker-count'),
@@ -155,7 +156,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show processing UI
         showSection('processing');
-        updateProgress(50, 'Processing audio... (Check server logs for details)');
+        updateProgress(100, 'Processing audio... (Check server logs for details)');
+
+        // Reset and start timer
+        let seconds = 0;
+        elements.processingTimer.textContent = '00:00';
+        const timerInterval = setInterval(() => {
+            seconds++;
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            elements.processingTimer.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }, 1000);
 
         try {
             const formData = new FormData();
@@ -166,16 +177,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: formData
             });
 
+            clearInterval(timerInterval);
+
             if (!response.ok) {
                 const errorData = await response.json();
                 throw new Error(errorData.detail || 'Processing failed');
             }
 
             const result = await response.json();
-            updateProgress(100, 'Complete!');
             displayResults(result);
 
         } catch (error) {
+            clearInterval(timerInterval);
             console.error('Processing error:', error);
             showError(error.message || 'An error occurred during processing');
         }
