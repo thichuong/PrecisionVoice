@@ -115,11 +115,19 @@ class DiarizationService:
         # Run diarization
         diarization = pipeline(str(audio_path), **params)
         
+        # Handle pyannote.audio 4.x breaking change
+        # In 4.x, pipeline returns a DiarizeOutput object wrapping the Annotation
+        # In 3.x, it returns the Annotation directly
+        annotation = diarization
+        if hasattr(diarization, "speaker_diarization"):
+            annotation = diarization.speaker_diarization
+            logger.info("Detected pyannote.audio 4.x DiarizeOutput structure")
+        
         # Convert to segments
         segments = []
         speaker_map = {}  # Map SPEAKER_XX to Speaker 1, 2, etc.
         
-        for turn, _, speaker in diarization.itertracks(yield_label=True):
+        for turn, _, speaker in annotation.itertracks(yield_label=True):
             # Create readable speaker label
             if speaker not in speaker_map:
                 speaker_map[speaker] = f"Speaker {len(speaker_map) + 1}"

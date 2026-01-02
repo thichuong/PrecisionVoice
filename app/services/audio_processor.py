@@ -114,9 +114,18 @@ class AudioProcessor:
     @staticmethod
     def _run_ffmpeg_conversion(input_path: Path, output_path: Path) -> None:
         """Run the actual FFmpeg conversion (blocking)."""
+        stream = ffmpeg.input(str(input_path))
+        
+        # Apply noise reduction if enabled
+        if settings.enable_noise_reduction:
+            logger.info("Applying noise reduction to audio...")
+            # afftdn: Audio FFT Denoiser
+            # highpass: Remove low-frequency hum/rumble (below 100Hz)
+            stream = stream.filter('afftdn', nr=10, nt='w')
+            stream = stream.filter('highpass', f=100)
+        
         (
-            ffmpeg
-            .input(str(input_path))
+            stream
             .output(
                 str(output_path),
                 acodec='pcm_s16le',

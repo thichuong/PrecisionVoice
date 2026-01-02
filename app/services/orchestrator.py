@@ -1,12 +1,13 @@
 """
 Pipeline Orchestrator for PrecisionVoice.
-Coordinates transcription and diarization in parallel.
+Coordinates transcription and diarization in parallel with progress updates.
 """
+import json
 import time
 import asyncio
 import logging
 from pathlib import Path
-from typing import List, Tuple
+from typing import AsyncGenerator, Any
 
 from app.core.config import get_settings
 from app.schemas.models import TranscriptionResponse, TranscriptSegment
@@ -19,61 +20,64 @@ settings = get_settings()
 
 class PipelineOrchestrator:
     """
-    Coordinates the AI pipeline:
-    1. Audio -> WAV (done by AudioProcessor before calling this)
+    Coordinates the AI pipeline with real-time status updates:
+    1. Audio -> WAV (Noise Reduction)
     2. Whisper (Transcribe) + Pyannote (Diarize) in parallel
     3. Alignment (Matching Algorithm)
     4. Generate outputs (TXT, SRT)
     """
 
     @classmethod
-    async def process_audio(
+    async def process_audio_stream(
         cls, 
         wav_path: Path, 
         duration: float
-    ) -> TranscriptionResponse:
+    ) -> AsyncGenerator[str, None]:
         """
-        Run the full processing pipeline on a WAV file.
+        Run the full processing pipeline and yield progress status.
+        Yields JSON strings for SSE.
         """
         start_time = time.time()
         
-        # Step 3a & 3b: Run Whisper and Pyannote in parallel
-        logger.info(f"Starting parallel processing for: {wav_path.name}")
+        # Step 1: Noise Reduction (Already handled by AudioProcessor, but we report it here)
+        yield json.dumps({"status": "processing", "message": "Noise reduction applied", "progress": 20})
+        
+        # Step 2: Parallel Whisper and Pyannote
+        yield json.dumps({"status": "processing", "message": "Transcription & Diarization starting...", "progress": 40})
         
         transcription_task = TranscriptionService.transcribe_async(wav_path)
         diarization_task = DiarizationService.diarize_async(wav_path)
         
-        # Execute in parallel
         try:
+            # We can't easily get partial progress from these black-box models without deeper integration,
+            # so we wait for both and then jump to 80%
             word_timestamps, speaker_segments = await asyncio.gather(
                 transcription_task,
                 diarization_task,
                 return_exceptions=False
             )
-            logger.info(f"Parallel processing complete: {len(word_timestamps)} words, {len(speaker_segments)} speaker segments")
+            yield json.dumps({"status": "processing", "message": "AI models finished processing", "progress": 80})
         except Exception as e:
             logger.exception("Parallel task failed")
-            # Fallback logic if one fails? 
-            # If diarization fails, we can still return transcription with a single speaker
-            if 'word_timestamps' not in locals():
-                raise # Critical failure
-            speaker_segments = []
-            logger.warning("Continuing with empty speaker segments due to diarization failure")
+            yield json.dumps({"status": "error", "message": f"AI processing failed: {str(e)}"})
+            return
 
-        # Step 3c & 3d: Precision alignment (word-center-based)
-        logger.info("Running precision alignment...")
+        # Step 3: Precision alignment
+        yield json.dumps({"status": "processing", "message": "Aligning speakers with text...", "progress": 90})
         aligned_segments = AlignmentService.align_precision(word_timestamps, speaker_segments)
         
         # Count unique speakers
         speakers = set(seg.speaker for seg in aligned_segments)
         
-        # Generate output files
+        # Step 4: Generate output files
+        yield json.dumps({"status": "processing", "message": "Generating export files...", "progress": 95})
         base_filename = wav_path.stem.replace("_processed", "")
         txt_path, srt_path = AlignmentService.generate_outputs(aligned_segments, base_filename)
         
         processing_time = time.time() - start_time
         
-        return TranscriptionResponse(
+        # Final result
+        result = TranscriptionResponse(
             success=True,
             message="Transcription completed successfully",
             segments=aligned_segments,
@@ -83,3 +87,10 @@ class PipelineOrchestrator:
             download_txt=f"/api/download/{txt_path.name}",
             download_srt=f"/api/download/{srt_path.name}"
         )
+        
+        yield json.dumps({
+            "status": "completed", 
+            "message": "Processing complete", 
+            "progress": 100,
+            "result": result.model_dump()
+        })

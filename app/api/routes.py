@@ -1,12 +1,13 @@
 """
 API routes for the transcription service.
 """
+import json
 import time
 import logging
 from pathlib import Path
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app.core.config import get_settings
 from app.schemas.models import TranscriptionResponse, ErrorResponse, HealthResponse
@@ -32,20 +33,18 @@ async def health_check():
     )
 
 
-@router.post("/api/transcribe", response_model=TranscriptionResponse)
+from fastapi.responses import FileResponse, StreamingResponse
+
+# ... (rest of imports)
+
+@router.post("/api/transcribe")
 async def transcribe_audio(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Audio file to transcribe")
 ):
     """
-    Upload and transcribe an audio file with speaker diarization.
-    
-    Supported formats: mp3, wav, m4a, ogg, flac, webm
-    Maximum file size: 100MB
-    
-    Returns transcription with speaker labels and download URLs.
+    Upload and transcribe an audio file with real-time status updates through SSE.
     """
-    start_time = time.time()
     wav_path = None
     
     try:
@@ -58,29 +57,35 @@ async def transcribe_audio(
         except AudioProcessingError as e:
             raise HTTPException(status_code=400, detail=str(e))
         
-        # Save and convert to WAV
+        # Save and convert to WAV (Noise reduction happens here)
         wav_path, duration = await AudioProcessor.process_upload(
             file_content, 
             file.filename or "audio.wav"
         )
         
-        # Run orchestrated pipeline (Whisper + Pyannote in parallel -> Alignment)
-        logger.info("Executing orchestrated pipeline...")
-        response = await PipelineOrchestrator.process_audio(wav_path, duration)
-        
-        # Schedule cleanup in background
-        background_tasks.add_task(cleanup_files, wav_path)
-        
-        return response
+        async def event_generator():
+            try:
+                async for status_json in PipelineOrchestrator.process_audio_stream(wav_path, duration):
+                    yield f"data: {status_json}\n\n"
+                
+                # Schedule cleanup in background after generator finishes
+                background_tasks.add_task(cleanup_files, wav_path)
+            except Exception as e:
+                logger.exception("Streaming failed")
+                yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
+                if wav_path and wav_path.exists():
+                    background_tasks.add_task(cleanup_files, wav_path)
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Transcription failed")
-        # Cleanup on error
+        logger.exception("Initial processing failed")
         if wav_path and wav_path.exists():
             background_tasks.add_task(cleanup_files, wav_path)
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
 
 
 @router.get("/api/download/{filename}")

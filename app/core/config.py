@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     
     # HuggingFace
     hf_token: str = ""
+    enable_noise_reduction: bool = True
     
     # Model settings
     whisper_model: str = "suzii/vi-whisper-large-v3-turbo-v1-ct2"
