@@ -37,13 +37,14 @@ from fastapi.responses import FileResponse, StreamingResponse
 
 # ... (rest of imports)
 
-@router.post("/api/transcribe")
+@router.post("/api/transcribe", response_model=TranscriptionResponse)
 async def transcribe_audio(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Audio file to transcribe")
 ):
     """
-    Upload and transcribe an audio file with real-time status updates through SSE.
+    Upload and transcribe an audio file.
+    Status updates are logged on the server.
     """
     wav_path = None
     
@@ -63,25 +64,19 @@ async def transcribe_audio(
             file.filename or "audio.wav"
         )
         
-        async def event_generator():
-            try:
-                async for status_json in PipelineOrchestrator.process_audio_stream(wav_path, duration):
-                    yield f"data: {status_json}\n\n"
-                
-                # Schedule cleanup in background after generator finishes
-                background_tasks.add_task(cleanup_files, wav_path)
-            except Exception as e:
-                logger.exception("Streaming failed")
-                yield f"data: {json.dumps({'status': 'error', 'message': str(e)})}\n\n"
-                if wav_path and wav_path.exists():
-                    background_tasks.add_task(cleanup_files, wav_path)
-
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        # Run orchestrated pipeline (Whisper + Pyannote in parallel -> Alignment)
+        logger.info("Executing orchestrated pipeline...")
+        response = await PipelineOrchestrator.process_audio(wav_path, duration)
+        
+        # Schedule cleanup in background
+        background_tasks.add_task(cleanup_files, wav_path)
+        
+        return response
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Initial processing failed")
+        logger.exception("Processing failed")
         if wav_path and wav_path.exists():
             background_tasks.add_task(cleanup_files, wav_path)
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")

@@ -155,7 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show processing UI
         showSection('processing');
-        updateProgress(0, 'Preparing file...');
+        updateProgress(50, 'Processing audio... (Check server logs for details)');
 
         try {
             const formData = new FormData();
@@ -171,47 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errorData.detail || 'Processing failed');
             }
 
-            // Read stream
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-
-                // Process SSE format: "data: {...}\n\n"
-                const lines = buffer.split('\n\n');
-                buffer = lines.pop(); // Keep partial line in buffer
-
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.substring(6));
-                            handleProgressUpdate(data);
-                        } catch (e) {
-                            console.error('Failed to parse status update:', e);
-                        }
-                    }
-                }
-            }
+            const result = await response.json();
+            updateProgress(100, 'Complete!');
+            displayResults(result);
 
         } catch (error) {
             console.error('Processing error:', error);
             showError(error.message || 'An error occurred during processing');
-        }
-    }
-
-    function handleProgressUpdate(data) {
-        if (data.status === 'processing') {
-            updateProgress(data.progress, data.message);
-        } else if (data.status === 'completed') {
-            updateProgress(100, 'Complete!');
-            displayResults(data.result);
-        } else if (data.status === 'error') {
-            showError(data.message);
         }
     }
 
