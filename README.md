@@ -4,7 +4,7 @@ A production-ready Speech-to-Text and Speaker Diarization web application using 
 
 ## Features
 
-- 🎙️ Speech-to-Text using `suzii/vi-whisper-large-v3-turbo-v1-ct2` (optimized for Vietnamese)
+- 🎙️ Speech-to-Text using `kiendt/PhoWhisper-large-ct2` (optimized for Vietnamese)
 - 👥 Speaker Diarization using `pyannote/speaker-diarization-3.1`
 - 🔄 Automatic speaker-transcript alignment
 - 📥 Download results in TXT or SRT format

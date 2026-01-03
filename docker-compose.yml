@@ -15,7 +15,7 @@ services:
       # HuggingFace token (required for pyannote.audio)
       - HF_TOKEN=${HF_TOKEN:-}
       # Model settings
-      - WHISPER_MODEL=${WHISPER_MODEL:-suzii/vi-whisper-large-v3-turbo-v1-ct2}
+      - WHISPER_MODEL=${WHISPER_MODEL:-kiendt/PhoWhisper-large-ct2}
       - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
       # Device (auto, cuda, cpu)
       - DEVICE=${DEVICE:-auto}
