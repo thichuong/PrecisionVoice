@@ -1,0 +1,24 @@
+name: Sync to Hugging Face Hub
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git remote add huggingface https://huggingface.co/spaces/ThiThanhChuong/precision-voice || true
+          git remote set-url huggingface https://huggingface.co/spaces/ThiThanhChuong/precision-voice
+          git push https://user:$HF_TOKEN@huggingface.co/spaces/ThiThanhChuong/precision-voice main --force
