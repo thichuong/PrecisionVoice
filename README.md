@@ -1,3 +1,15 @@
+---
+title: PrecisionVoice
+emoji: 🎙️
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_file: app/main.py
+pinned: false
+---
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+
 # PrecisionVoice - STT & Speaker Diarization
 
 A production-ready Speech-to-Text and Speaker Diarization web application using FastAPI, faster-whisper, and pyannote.audio.
