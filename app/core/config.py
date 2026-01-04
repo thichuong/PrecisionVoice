@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     hf_token: str = ""
     enable_noise_reduction: bool = True
     
+    # Demucs Vocal Separation
+    enable_vocal_separation: bool = True
+    demucs_model: str = "htdemucs"  # Hybrid Transformer Demucs
+    
     # Model settings
     whisper_model: str = "kiendt/PhoWhisper-large-ct2"
     diarization_model: str = "pyannote/speaker-diarization-3.1"

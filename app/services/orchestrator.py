@@ -19,7 +19,7 @@ settings = get_settings()
 class PipelineOrchestrator:
     """
     Coordinates the AI pipeline with detailed server-side logging:
-    1. Audio -> WAV (Noise Reduction)
+    1. Audio -> Vocal Separation (Demucs) -> 16kHz WAV
     2. Whisper (Transcribe) + Pyannote (Diarize) in parallel
     3. Alignment (Matching Algorithm)
     4. Generate outputs (TXT, SRT)
@@ -37,8 +37,8 @@ class PipelineOrchestrator:
         """
         start_time = time.time()
         
-        # Step 1: Pre-processing (Noise Reduction)
-        logger.info(f"Step 1/4: Audio pre-processing complete (Noise Reduction: {settings.enable_noise_reduction})")
+        # Step 1: Pre-processing (Vocal Separation + Noise Reduction) - already done in AudioProcessor
+        logger.info(f"Step 1/4: Audio pre-processing complete (Demucs: {settings.enable_vocal_separation}, Noise Reduction: {settings.enable_noise_reduction})")
         
         # Step 2: Parallel Whisper and Pyannote
         logger.info(f"Step 2/4: Starting parallel AI processing (Whisper + Pyannote) for {wav_path.name}")

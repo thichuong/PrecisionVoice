@@ -12,6 +12,7 @@ from typing import Optional, Tuple
 import ffmpeg
 
 from app.core.config import get_settings
+from app.services.vocal_separator import VocalSeparator
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -199,20 +200,33 @@ class AudioProcessor:
         
         # Save original
         original_path = await cls.save_upload(file_content, filename)
+        vocals_path = None
         
         try:
-            # Convert to WAV
-            wav_path = await cls.convert_to_wav(original_path)
+            # Step 1: Vocal separation using Demucs (if enabled)
+            if settings.enable_vocal_separation:
+                logger.info(f"Running vocal separation (Demucs: {settings.demucs_model})...")
+                vocals_path = await VocalSeparator.separate_vocals(original_path)
+                source_for_conversion = vocals_path
+            else:
+                source_for_conversion = original_path
+            
+            # Step 2: Convert to 16kHz mono WAV
+            wav_path = await cls.convert_to_wav(source_for_conversion)
             
             # Get duration
             duration = await cls.get_audio_duration(wav_path)
             
-            # Cleanup original (keep WAV for processing)
+            # Cleanup intermediate files
             await cls.cleanup_files(original_path)
+            if vocals_path and vocals_path != original_path:
+                await cls.cleanup_files(vocals_path)
             
             return wav_path, duration
             
         except Exception as e:
             # Cleanup on error
             await cls.cleanup_files(original_path)
+            if vocals_path and vocals_path != original_path:
+                await cls.cleanup_files(vocals_path)
             raise

@@ -21,6 +21,9 @@ services:
       - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
       # Device (auto, cuda, cpu)
       - DEVICE=${DEVICE:-auto}
+      # Demucs Vocal Separation
+      - ENABLE_VOCAL_SEPARATION=${ENABLE_VOCAL_SEPARATION:-True}
+      - DEMUCS_MODEL=${DEMUCS_MODEL:-htdemucs}
       # Upload settings
       - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-100}
       # Optimization settings
