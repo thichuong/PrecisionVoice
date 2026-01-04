@@ -13,6 +13,7 @@ import ffmpeg
 
 from app.core.config import get_settings
 from app.services.vocal_separator import VocalSeparator
+from app.services.denoiser import DenoiserService
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -122,12 +123,9 @@ class AudioProcessor:
             logger.info("Applying loudnorm normalization...")
             stream = stream.filter('loudnorm', I=-16, TP=-1.5, LRA=11)
             
-        # Apply noise reduction if enabled
+        # Apply noise reduction if enabled (Note: basic filters are kept as minor cleanup)
         if settings.enable_noise_reduction:
-            logger.info(f"Applying advanced noise reduction (anlmdn, level={settings.noise_reduction_level})...")
-            # anlmdn: Adaptive Non-Local Means Denoiser (usually better than afftdn for speech)
-            # highpass: Remove low-frequency hum/rumble (below 80Hz)
-            stream = stream.filter('anlmdn', s=settings.noise_reduction_level)
+            logger.info("Applying subtle highpass filter...")
             stream = stream.filter('highpass', f=80)
         
         (
@@ -203,30 +201,44 @@ class AudioProcessor:
         vocals_path = None
         
         try:
-            # Step 1: Vocal separation using Demucs (if enabled)
+            # Step 1: Denoising (Speech Enhancement)
+            if settings.enable_denoiser:
+                denoised_path = await DenoiserService.enhance_audio(original_path)
+                source_for_separation = denoised_path
+            else:
+                source_for_separation = original_path
+                denoised_path = None
+                
+            # Step 2: Vocal separation using MDX-Net
             if settings.enable_vocal_separation:
-                logger.info(f"Running vocal separation (Demucs: {settings.demucs_model})...")
-                vocals_path = await VocalSeparator.separate_vocals(original_path)
+                vocals_path = await VocalSeparator.separate_vocals(source_for_separation)
                 source_for_conversion = vocals_path
             else:
-                source_for_conversion = original_path
+                source_for_conversion = source_for_separation
+                vocals_path = None
             
-            # Step 2: Convert to 16kHz mono WAV
+            # Step 3: Convert to 16kHz mono WAV (includes normalization)
             wav_path = await cls.convert_to_wav(source_for_conversion)
             
             # Get duration
             duration = await cls.get_audio_duration(wav_path)
             
             # Cleanup intermediate files
-            await cls.cleanup_files(original_path)
-            if vocals_path and vocals_path != original_path:
-                await cls.cleanup_files(vocals_path)
+            to_cleanup = [original_path]
+            if denoised_path and denoised_path != original_path:
+                to_cleanup.append(denoised_path)
+            if vocals_path and vocals_path not in [original_path, denoised_path]:
+                to_cleanup.append(vocals_path)
+                
+            await cls.cleanup_files(*to_cleanup)
             
             return wav_path, duration
             
         except Exception as e:
             # Cleanup on error
             await cls.cleanup_files(original_path)
-            if vocals_path and vocals_path != original_path:
+            if 'denoised_path' in locals() and denoised_path and denoised_path != original_path:
+                await cls.cleanup_files(denoised_path)
+            if 'vocals_path' in locals() and vocals_path and vocals_path not in [original_path, denoised_path]:
                 await cls.cleanup_files(vocals_path)
             raise

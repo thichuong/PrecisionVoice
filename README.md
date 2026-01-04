@@ -18,9 +18,11 @@ A production-ready Speech-to-Text and Speaker Diarization web application using 
 
 - 🎙️ Speech-to-Text using `kiendt/PhoWhisper-large-ct2` (optimized for Vietnamese)
 - 👥 Speaker Diarization using `pyannote/speaker-diarization-3.1`
+- 🧼 Advanced Denoising using Facebook's `Denoiser` (dns64)
+- 🎤 Vocal Isolation using `MDX-Net` (UVR-MDX-NET-Voc_FT)
 - 🔄 Automatic speaker-transcript alignment
 - 📥 Download results in TXT or SRT format
-- 🐳 Docker-ready with GPU support
+- 🐳 Docker-ready with persistent model caching and GPU support
 
 ## Quick Start
 
@@ -44,6 +46,28 @@ A production-ready Speech-to-Text and Speaker Diarization web application using 
    ```
 
 3. Open http://localhost:8000
+
+## Audio Processing Pipeline
+
+The system uses a state-of-the-art multi-stage pipeline to ensure maximum accuracy:
+
+1. **Speech Enhancement**: Background noise, hums, and interference are removed using Facebook's `Denoiser` (Deep Learning Wave-U-Net).
+2. **Vocal Isolation**: Vocals are stripped from any remaining background music or non-speech sounds using `MDX-Net`.
+3. **Refinement**: Subtle highpass filtering and EBU R128 loudness normalization for consistent volume.
+4. **Transcription**: High-precision Vietnamese transcription using `PhoWhisper`.
+5. **Diarization**: Segmenting audio by speaker.
+6. **Alignment**: Merging transcripts with speaker segments.
+
+## Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HF_TOKEN` | - | Required for Pyannote models |
+| `ENABLE_DENOISER` | `True` | Toggle Facebook speech enhancement |
+| `DENOISER_MODEL` | `dns64` | Model for denoising |
+| `ENABLE_VOCAL_SEPARATION` | `True` | Toggle MDX-Net vocal isolation |
+| `MDX_MODEL` | `UVR-MDX-NET-Voc_FT` | Model for vocal separation |
+| `DEVICE` | `auto` | `cuda`, `cpu`, or `auto` |
 
 ## Development
 

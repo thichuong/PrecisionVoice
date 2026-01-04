@@ -22,9 +22,13 @@ class Settings(BaseSettings):
     hf_token: str = ""
     enable_noise_reduction: bool = True
     
-    # Demucs Vocal Separation
+    # Denoising (Speech Enhancement)
+    enable_denoiser: bool = True
+    denoiser_model: str = "dns64"
+    
+    # MDX-Net Vocal Separation
     enable_vocal_separation: bool = True
-    demucs_model: str = "htdemucs"  # Hybrid Transformer Demucs
+    mdx_model: str = "Kim_Vocal_2.onnx"  # High quality vocal isolation
     
     # Model settings
     whisper_model: str = "kiendt/PhoWhisper-large-ct2"

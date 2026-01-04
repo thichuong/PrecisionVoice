@@ -1,14 +1,12 @@
 """
-Vocal Separation Service using Demucs (Hybrid Transformer).
-Isolates vocals from audio files to improve speech recognition accuracy.
+Vocal Separation Service using MDX-Net (via audio-separator).
+Isolates vocals from audio files using state-of-the-art MDX-Net models.
 """
 import os
 import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
-
-import torch
 
 from app.core.config import get_settings
 
@@ -23,44 +21,44 @@ class VocalSeparationError(Exception):
 
 class VocalSeparator:
     """
-    Service for separating vocals from audio using Demucs.
-    
-    Uses the Hybrid Transformer Demucs model (htdemucs) which produces
-    4 stems: drums, bass, other, vocals. Only the vocals stem is kept.
+    Service for separating vocals from audio using MDX-Net.
+    Uses the audio-separator library which supports UVR models.
     """
     
-    _model = None
+    _separator = None
     _model_name: str = None
     
     @classmethod
-    def _get_model(cls):
-        """Lazy load the Demucs model."""
-        if cls._model is None or cls._model_name != settings.demucs_model:
-            from demucs.pretrained import get_model
-            from demucs.apply import BagOfModels
+    def _get_separator(cls):
+        """Lazy load the Audio Separator."""
+        if cls._separator is None or cls._model_name != settings.mdx_model:
+            from audio_separator.separator import Separator
             
-            logger.info(f"Loading Demucs model: {settings.demucs_model}")
-            model = get_model(settings.demucs_model)
+            logger.info(f"Initializing MDX-Net separator with model: {settings.mdx_model}")
             
-            # Wrap in BagOfModels if needed
-            if not isinstance(model, BagOfModels):
-                model = BagOfModels([model])
+            # Initialize separator
+            # Note: audio-separator expects output_dir to exist
+            settings.processed_dir.mkdir(parents=True, exist_ok=True)
             
-            # Move to appropriate device
-            device = settings.resolved_device
-            model.to(device)
-            model.eval()
+            separator = Separator(
+                output_dir=str(settings.processed_dir),
+                output_format="WAV",
+                normalization_threshold=0.9
+            )
             
-            cls._model = model
-            cls._model_name = settings.demucs_model
-            logger.info(f"Demucs model loaded on {device}")
+            # Load model
+            separator.load_model(settings.mdx_model)
+            
+            cls._separator = separator
+            cls._model_name = settings.mdx_model
+            logger.info(f"MDX-Net model loaded on {settings.resolved_device}")
         
-        return cls._model
+        return cls._separator
     
     @classmethod
     async def separate_vocals(cls, input_path: Path) -> Path:
         """
-        Separate vocals from audio file using Demucs.
+        Separate vocals from audio file using MDX-Net.
         
         Args:
             input_path: Path to input audio file
@@ -87,57 +85,34 @@ class VocalSeparator:
             
         except Exception as e:
             logger.error(f"Vocal separation failed: {e}")
-            raise VocalSeparationError(f"Vocal separation failed: {e}")
+            # Fallback to original
+            logger.warning("Falling back to original audio.")
+            return input_path
     
     @classmethod
     def _run_separation(cls, input_path: Path) -> Path:
-        """Run the actual Demucs separation (blocking)."""
-        import torchaudio
-        from demucs.audio import AudioFile
-        from demucs.apply import apply_model
+        """Run the actual separation (blocking)."""
+        separator = cls._get_separator()
         
-        model = cls._get_model()
-        device = settings.resolved_device
+        # separate() returns a list of output filenames
+        output_files = separator.separate(str(input_path))
         
-        # Load audio
-        logger.info("Loading audio for separation...")
-        audio_file = AudioFile(input_path)
-        wav = audio_file.read(
-            streams=0,
-            samplerate=model.samplerate,
-            channels=model.audio_channels
-        )
+        # audio-separator usually produces multiple files (Vocals, Instrumental)
+        # We need to find the vocals one.
+        # It typically names them like {input_stem}_(Vocals)_{model}.wav
         
-        # Move to device
-        ref = wav.mean(0)
-        wav = (wav - ref.mean()) / ref.std()
-        wav = wav.to(device)
+        vocals_file = None
+        for file in output_files:
+            if "Vocals" in file:
+                vocals_file = settings.processed_dir / file
+                break
         
-        # Apply model
-        logger.info("Running Demucs model...")
-        with torch.no_grad():
-            sources = apply_model(
-                model, 
-                wav[None],
-                device=device,
-                progress=False,
-                num_workers=0
-            )[0]
-        
-        # Sources order: drums, bass, other, vocals
-        # We want index 3 (vocals)
-        sources = sources * ref.std() + ref.mean()
-        vocals = sources[3]  # Get vocals stem
-        
-        # Save vocals to file
-        output_filename = f"{input_path.stem}_vocals.wav"
-        output_path = settings.processed_dir / output_filename
-        
-        logger.info(f"Saving vocals to: {output_path}")
-        torchaudio.save(
-            str(output_path),
-            vocals.cpu(),
-            model.samplerate
-        )
-        
-        return output_path
+        if not vocals_file:
+            # If we can't find the vocals file specifically, just take the first one or fail
+            logger.warning("Could not identify vocals stem in output files.")
+            if output_files:
+                vocals_file = settings.processed_dir / output_files[0]
+            else:
+                raise VocalSeparationError("No output files generated by separator.")
+                
+        return vocals_file

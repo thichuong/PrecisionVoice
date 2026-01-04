@@ -15,7 +15,8 @@ torch>=2.1.0
 torchaudio>=2.1.0
 
 # AI/ML - Vocal Separation
-demucs>=4.0.0
+audio-separator[cpu]>=0.17.0
+denoiser>=0.1.4
 
 # Audio processing
 ffmpeg-python>=0.2.0

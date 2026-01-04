@@ -11,8 +11,10 @@ services:
     volumes:
       # Persist uploaded/processed files
       - ./data:/app/data
-      # Cache HuggingFace models to avoid re-downloading
-      - model_cache:/root/.cache/huggingface
+      # Cache models to avoid re-downloading
+      - model_cache_hf:/root/.cache/huggingface
+      - model_cache_torch:/root/.cache/torch
+      - model_cache_mdx:/root/.audio-separator-models
     environment:
       # HuggingFace token (required for pyannote.audio)
       - HF_TOKEN=${HF_TOKEN:-}
@@ -21,13 +23,15 @@ services:
       - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
       # Device (auto, cuda, cpu)
       - DEVICE=${DEVICE:-auto}
-      # Demucs Vocal Separation
+      # Denoising (Speech Enhancement)
+      - ENABLE_DENOISER=${ENABLE_DENOISER:-True}
+      - DENOISER_MODEL=${DENOISER_MODEL:-dns64}
+      # MDX-Net Vocal Separation
       - ENABLE_VOCAL_SEPARATION=${ENABLE_VOCAL_SEPARATION:-True}
-      - DEMUCS_MODEL=${DEMUCS_MODEL:-htdemucs}
+      - MDX_MODEL=${MDX_MODEL:-UVR-MDX-NET-Voc_FT}
       # Upload settings
       - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-100}
       # Optimization settings
-      - NOISE_REDUCTION_LEVEL=${NOISE_REDUCTION_LEVEL:-12.0}
       - ENABLE_LOUDNORM=${ENABLE_LOUDNORM:-True}
       - ENABLE_NOISE_REDUCTION=${ENABLE_NOISE_REDUCTION:-True}
       # VAD settings
@@ -48,5 +52,9 @@ services:
     #           capabilities: [gpu]
 
 volumes:
-  model_cache:
-    name: precisionvoice_model_cache
+  model_cache_hf:
+    name: precisionvoice_hf_cache
+  model_cache_torch:
+    name: precisionvoice_torch_cache
+  model_cache_mdx:
+    name: precisionvoice_mdx_cache
