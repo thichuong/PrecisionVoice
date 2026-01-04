@@ -3,9 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - PORT=${PORT:-7860}
     container_name: precisionvoice
     ports:
-      - "8000:8000"
+      - "${PORT:-7860}:${PORT:-7860}"
     volumes:
       # Persist uploaded/processed files
       - ./data:/app/data
