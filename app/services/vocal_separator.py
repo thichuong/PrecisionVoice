@@ -34,7 +34,7 @@ class VocalSeparator:
         if cls._separator is None or cls._model_name != settings.mdx_model:
             from audio_separator.separator import Separator
             
-            logger.info(f"Initializing MDX-Net separator with model: {settings.mdx_model}")
+            logger.debug(f"Initializing MDX-Net separator with model: {settings.mdx_model}")
             
             # Initialize separator
             # Note: audio-separator expects output_dir to exist
@@ -51,7 +51,7 @@ class VocalSeparator:
             
             cls._separator = separator
             cls._model_name = settings.mdx_model
-            logger.info(f"MDX-Net model loaded on {settings.resolved_device}")
+            logger.debug(f"MDX-Net model loaded on {settings.resolved_device}")
         
         return cls._separator
     
@@ -67,10 +67,10 @@ class VocalSeparator:
             Path to separated vocals WAV file
         """
         if not settings.enable_vocal_separation:
-            logger.info("Vocal separation disabled, skipping...")
+            logger.debug("Vocal separation disabled, skipping...")
             return input_path
         
-        logger.info(f"Starting vocal separation for: {input_path.name}")
+        logger.debug(f"Starting vocal separation for: {input_path.name}")
         
         try:
             # Run separation in executor to not block

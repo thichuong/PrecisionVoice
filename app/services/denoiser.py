@@ -43,7 +43,7 @@ class DenoiserService:
             }
             
             model_func = model_map.get(settings.denoiser_model, dns64)
-            logger.info(f"Loading Denoiser model: {settings.denoiser_model}")
+            logger.debug(f"Loading Denoiser model: {settings.denoiser_model}")
             
             model = model_func()
             device = settings.resolved_device
@@ -52,7 +52,7 @@ class DenoiserService:
             
             cls._model = model
             cls._model_name = settings.denoiser_model
-            logger.info(f"Denoiser model loaded on {device}")
+            logger.debug(f"Denoiser model loaded on {device}")
             
         return cls._model
 
@@ -68,10 +68,10 @@ class DenoiserService:
             Path to enhanced WAV file
         """
         if not settings.enable_denoiser:
-            logger.info("Denoiser disabled, skipping...")
+            logger.debug("Denoiser disabled, skipping...")
             return input_path
             
-        logger.info(f"Starting speech enhancement for: {input_path.name}")
+        logger.debug(f"Starting speech enhancement for: {input_path.name}")
         
         try:
             # Run enhancement in executor to not block

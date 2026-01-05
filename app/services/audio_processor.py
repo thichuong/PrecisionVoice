@@ -83,7 +83,7 @@ class AudioProcessor:
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, lambda: filepath.write_bytes(file_content))
         
-        logger.info(f"Saved upload: {filepath}")
+        logger.debug(f"Saved upload: {filepath}")
         return filepath
     
     @classmethod
@@ -120,12 +120,12 @@ class AudioProcessor:
         
         # Apply normalization if enabled (loudnorm is best for speech consistency)
         if settings.enable_loudnorm:
-            logger.info("Applying loudnorm normalization...")
+            logger.debug("Applying loudnorm normalization...")
             stream = stream.filter('loudnorm', I=-16, TP=-1.5, LRA=11)
             
         # Apply noise reduction if enabled (Note: basic filters are kept as minor cleanup)
         if settings.enable_noise_reduction:
-            logger.info("Applying subtle highpass filter...")
+            logger.debug("Applying subtle highpass filter...")
             stream = stream.filter('highpass', f=80)
         
         (
@@ -177,7 +177,7 @@ class AudioProcessor:
             try:
                 if filepath and filepath.exists():
                     filepath.unlink()
-                    logger.info(f"Cleaned up: {filepath}")
+                    logger.debug(f"Cleaned up: {filepath}")
             except Exception as e:
                 logger.warning(f"Failed to clean up {filepath}: {e}")
     

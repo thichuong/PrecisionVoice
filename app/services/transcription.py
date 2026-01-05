@@ -57,8 +57,8 @@ class TranscriptionService:
             Loaded WhisperModel instance
         """
         if cls._model is None:
-            logger.info(f"Loading Whisper model: {settings.whisper_model}")
-            logger.info(f"Device: {settings.resolved_device}, Compute type: {settings.resolved_compute_type}")
+            logger.debug(f"Loading Whisper model: {settings.whisper_model}")
+            logger.debug(f"Device: {settings.resolved_device}, Compute type: {settings.resolved_compute_type}")
             
             cls._model = WhisperModel(
                 settings.whisper_model,
@@ -67,7 +67,7 @@ class TranscriptionService:
                 download_root=None,  # Use default HF cache
             )
             
-            logger.info("Whisper model loaded successfully")
+            logger.debug("Whisper model loaded successfully")
         
         return cls._model
     
@@ -96,7 +96,7 @@ class TranscriptionService:
         """
         model = cls.get_model()
         
-        logger.info(f"Transcribing: {audio_path}")
+        logger.debug(f"Transcribing: {audio_path}")
         
         # Run transcription with word timestamps - CRITICAL for precision alignment
         segments_generator, info = model.transcribe(

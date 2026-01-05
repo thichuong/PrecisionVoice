@@ -143,7 +143,7 @@ class AlignmentService:
                 speaker=speaker
             ))
         
-        logger.info(f"Assigned speakers to {len(words_with_speakers)} words")
+        logger.debug(f"Assigned speakers to {len(words_with_speakers)} words")
         return words_with_speakers
     
     @classmethod
@@ -215,7 +215,7 @@ class AlignmentService:
                 text=" ".join(current_words)
             ))
         
-        logger.info(f"Reconstructed {len(segments)} segments from {len(words_with_speakers)} words")
+        logger.debug(f"Reconstructed {len(segments)} segments from {len(words_with_speakers)} words")
         return segments
     
     @classmethod
@@ -253,7 +253,7 @@ class AlignmentService:
                 
         merged.append(curr)
         
-        logger.info(f"Merged segments: {len(segments)} -> {len(merged)}")
+        logger.debug(f"Merged segments: {len(segments)} -> {len(merged)}")
         return merged
 
     @classmethod

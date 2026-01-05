@@ -57,7 +57,7 @@ class DiarizationService:
                     "Set HF_TOKEN in your environment or .env file."
                 )
             
-            logger.info(f"Loading diarization pipeline: {settings.diarization_model}")
+            logger.debug(f"Loading diarization pipeline: {settings.diarization_model}")
             
             # Use 'token' parameter (use_auth_token is deprecated)
             cls._pipeline = Pipeline.from_pretrained(
@@ -69,9 +69,9 @@ class DiarizationService:
             device = torch.device(settings.resolved_device)
             if device.type == "cuda":
                 cls._pipeline = cls._pipeline.to(device)
-                logger.info("Diarization pipeline moved to GPU")
+                logger.debug("Diarization pipeline moved to GPU")
             
-            logger.info("Diarization pipeline loaded successfully")
+            logger.debug("Diarization pipeline loaded successfully")
         
         return cls._pipeline
     
@@ -102,7 +102,7 @@ class DiarizationService:
         """
         pipeline = cls.get_pipeline()
         
-        logger.info(f"Diarizing: {audio_path}")
+        logger.debug(f"Diarizing: {audio_path}")
         
         # Build parameters
         params = {}
@@ -121,7 +121,7 @@ class DiarizationService:
         annotation = diarization
         if hasattr(diarization, "speaker_diarization"):
             annotation = diarization.speaker_diarization
-            logger.info("Detected pyannote.audio 4.x DiarizeOutput structure")
+            logger.debug("Detected pyannote.audio 4.x DiarizeOutput structure")
         
         # Convert to segments
         segments = []

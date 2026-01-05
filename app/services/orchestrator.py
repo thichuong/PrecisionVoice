@@ -19,7 +19,7 @@ settings = get_settings()
 class PipelineOrchestrator:
     """
     Coordinates the AI pipeline with detailed server-side logging:
-    1. Audio -> Vocal Separation (Demucs) -> 16kHz WAV
+    1. Audio -> Vocal Separation (MDX-Net) -> 16kHz WAV
     2. Whisper (Transcribe) + Pyannote (Diarize) in parallel
     3. Alignment (Matching Algorithm)
     4. Generate outputs (TXT, SRT)
@@ -37,11 +37,11 @@ class PipelineOrchestrator:
         """
         start_time = time.time()
         
-        # Step 1: Pre-processing (Vocal Separation + Noise Reduction) - already done in AudioProcessor
-        logger.info(f"Step 1/4: Audio pre-processing complete (Demucs: {settings.enable_vocal_separation}, Noise Reduction: {settings.enable_noise_reduction})")
+        # Step 1: Pre-processing (Vocal Separation + Noise Reduction)
+        logger.info(f"[Step 1/4] Audio pre-processing completed (MDX-Net: {settings.enable_vocal_separation}, Denoise: {settings.enable_noise_reduction})")
         
-        # Step 2: Parallel Whisper and Pyannote
-        logger.info(f"Step 2/4: Starting parallel AI processing (Whisper + Pyannote) for {wav_path.name}")
+        # Step 2: AI Processing (Transcription & Diarization)
+        logger.info(f"[Step 2/4] Starting AI models (Whisper + Pyannote) for: {wav_path.name}")
         
         transcription_task = TranscriptionService.transcribe_async(wav_path)
         diarization_task = DiarizationService.diarize_async(wav_path)
@@ -52,20 +52,20 @@ class PipelineOrchestrator:
                 diarization_task,
                 return_exceptions=False
             )
-            logger.info(f"AI models finished processing: {len(word_timestamps)} words, {len(speaker_segments)} diarization segments")
+            logger.info(f"AI models processing completed: {len(word_timestamps)} words, {len(speaker_segments)} segments")
         except Exception as e:
             logger.exception("Parallel task failed")
             raise
 
-        # Step 3: Precision alignment
-        logger.info("Step 3/4: Running precision alignment (word-center-based)...")
+        # Step 3: Precision Alignment
+        logger.info("[Step 3/4] Aligning words with speaker turns...")
         aligned_segments = AlignmentService.align_precision(word_timestamps, speaker_segments)
         
         # Count unique speakers
         speakers = set(seg.speaker for seg in aligned_segments)
         
-        # Step 4: Generate output files
-        logger.info("Step 4/4: Generating export files (TXT, SRT)...")
+        # Step 4: Export Generation
+        logger.info("[Step 4/4] Generating export files (TXT, SRT)...")
         base_filename = wav_path.stem.replace("_processed", "")
         txt_path, srt_path = AlignmentService.generate_outputs(aligned_segments, base_filename)
         
