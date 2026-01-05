@@ -47,6 +47,7 @@ async def transcribe_audio(
     Status updates are logged on the server.
     """
     wav_path = None
+    vad_filtered_path = None
     
     try:
         # Read file content
@@ -58,18 +59,27 @@ async def transcribe_audio(
         except AudioProcessingError as e:
             raise HTTPException(status_code=400, detail=str(e))
         
-        # Save and convert to WAV (Noise reduction happens here)
-        wav_path, duration = await AudioProcessor.process_upload(
+        # Save, convert to WAV, and apply VAD filtering
+        wav_path, vad_filtered_path, duration, original_segments, adjusted_segments = await AudioProcessor.process_upload(
             file_content, 
             file.filename or "audio.wav"
         )
         
-        # Run orchestrated pipeline (Whisper + Pyannote in parallel -> Alignment)
-        logger.info("Executing orchestrated pipeline...")
-        response = await PipelineOrchestrator.process_audio(wav_path, duration)
+        # Run orchestrated pipeline (Whisper on VAD-filtered + Pyannote on full -> Alignment)
+        logger.info("Executing orchestrated pipeline with Silero VAD...")
+        response = await PipelineOrchestrator.process_audio(
+            wav_path,
+            vad_filtered_path,
+            duration,
+            original_segments,
+            adjusted_segments
+        )
         
-        # Schedule cleanup in background
-        background_tasks.add_task(cleanup_files, wav_path)
+        # Schedule cleanup in background (both wav_path and vad_filtered_path if different)
+        paths_to_cleanup = [wav_path]
+        if vad_filtered_path and vad_filtered_path != wav_path:
+            paths_to_cleanup.append(vad_filtered_path)
+        background_tasks.add_task(cleanup_files, *paths_to_cleanup)
         
         return response
         
@@ -77,8 +87,14 @@ async def transcribe_audio(
         raise
     except Exception as e:
         logger.exception("Processing failed")
+        # Cleanup any processed files on error
+        paths_to_cleanup = []
         if wav_path and wav_path.exists():
-            background_tasks.add_task(cleanup_files, wav_path)
+            paths_to_cleanup.append(wav_path)
+        if vad_filtered_path and vad_filtered_path != wav_path and vad_filtered_path.exists():
+            paths_to_cleanup.append(vad_filtered_path)
+        if paths_to_cleanup:
+            background_tasks.add_task(cleanup_files, *paths_to_cleanup)
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 

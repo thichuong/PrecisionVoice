@@ -18,6 +18,9 @@ torchaudio>=2.1.0
 audio-separator[cpu]>=0.17.0
 denoiser>=0.1.4
 
+# AI/ML - Voice Activity Detection
+silero-vad>=5.1.0
+
 # Audio processing
 ffmpeg-python>=0.2.0
 pydub>=0.25.1

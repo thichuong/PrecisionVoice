@@ -50,10 +50,17 @@ class Settings(BaseSettings):
     noise_reduction_level: float = 12.0  # Used by anlmdn
     enable_loudnorm: bool = True
     
-    # VAD parameters
+    # VAD parameters (Whisper built-in)
     vad_threshold: float = 0.5
     vad_min_speech_duration_ms: int = 250
     vad_min_silence_duration_ms: int = 500
+    
+    # Silero VAD v5 Settings (Pre-ASR filtering)
+    enable_silero_vad: bool = True
+    silero_vad_threshold: float = 0.5  # Speech probability threshold (0.0-1.0)
+    silero_vad_min_speech_ms: int = 250  # Minimum speech duration to keep
+    silero_vad_min_silence_ms: int = 100  # Minimum silence to split segments
+    silero_vad_speech_pad_ms: int = 30  # Padding around speech segments
     
     # Post-processing
     merge_threshold_s: float = 0.5  # Merge segments from same speaker if gap < this

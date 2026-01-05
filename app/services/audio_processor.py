@@ -1,19 +1,20 @@
 """
 Audio processing service using FFmpeg.
-Handles file validation, conversion to 16kHz mono WAV, and cleanup.
+Handles file validation, conversion to 16kHz mono WAV, VAD filtering, and cleanup.
 """
 import os
 import uuid
 import asyncio
 import logging
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List, Any
 
 import ffmpeg
 
 from app.core.config import get_settings
 from app.services.vocal_separator import VocalSeparator
 from app.services.denoiser import DenoiserService
+from app.services.vad import VADService, SpeechSegment
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -182,16 +183,21 @@ class AudioProcessor:
                 logger.warning(f"Failed to clean up {filepath}: {e}")
     
     @classmethod
-    async def process_upload(cls, file_content: bytes, filename: str) -> Tuple[Path, float]:
+    async def process_upload(cls, file_content: bytes, filename: str) -> Tuple[Path, Path, float, List[SpeechSegment], List[SpeechSegment]]:
         """
-        Full upload processing pipeline: validate, save, convert.
+        Full upload processing pipeline: validate, save, convert, and VAD filter.
         
         Args:
             file_content: Uploaded file bytes
             filename: Original filename
             
         Returns:
-            Tuple of (processed WAV path, duration in seconds)
+            Tuple of:
+            - processed WAV path (for diarization - without VAD)
+            - VAD-filtered WAV path (for ASR - with silence removed)
+            - duration in seconds
+            - original speech segments (timestamps in original audio)
+            - adjusted speech segments (timestamps in filtered audio)
         """
         # Validate
         cls.validate_file(filename, len(file_content))
@@ -223,16 +229,28 @@ class AudioProcessor:
             # Get duration
             duration = await cls.get_audio_duration(wav_path)
             
-            # Cleanup intermediate files
+            # Step 4: VAD filtering (Silero VAD v5) - NEW
+            # This removes silence to prevent Whisper hallucination
+            if settings.enable_silero_vad:
+                vad_filtered_path, original_segments, adjusted_segments = await VADService.filter_silence(wav_path)
+                logger.info(f"[VAD] Filtered silence: {len(original_segments)} speech segments detected")
+            else:
+                vad_filtered_path = wav_path
+                original_segments = []
+                adjusted_segments = []
+            
+            # Cleanup intermediate files (but keep wav_path and vad_filtered_path for processing)
             to_cleanup = [original_path]
             if denoised_path and denoised_path != original_path:
                 to_cleanup.append(denoised_path)
             if vocals_path and vocals_path not in [original_path, denoised_path]:
                 to_cleanup.append(vocals_path)
+            # Note: Do NOT cleanup wav_path or vad_filtered_path - they are returned for further processing
                 
             await cls.cleanup_files(*to_cleanup)
             
-            return wav_path, duration
+            # Return both paths: wav_path for diarization (needs full audio), vad_filtered_path for ASR
+            return wav_path, vad_filtered_path, duration, original_segments, adjusted_segments
             
         except Exception as e:
             # Cleanup on error
