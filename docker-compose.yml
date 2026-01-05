@@ -19,13 +19,13 @@ services:
       # HuggingFace token (required for pyannote.audio)
       - HF_TOKEN=${HF_TOKEN:-}
       # Model settings
-      - WHISPER_MODEL=${WHISPER_MODEL:-kiendt/PhoWhisper-large-ct2}
+      - WHISPER_MODEL=${WHISPER_MODEL:-erax-ai/EraX-WoW-Turbo-V1.1-CT2}
       - DIARIZATION_MODEL=${DIARIZATION_MODEL:-pyannote/speaker-diarization-3.1}
       # Device (auto, cuda, cpu)
       - DEVICE=${DEVICE:-auto}
-      # Denoising (Speech Enhancement)
-      - ENABLE_DENOISER=${ENABLE_DENOISER:-True}
-      - DENOISER_MODEL=${DENOISER_MODEL:-dns64}
+      # Speech Enhancement (SpeechBrain SepFormer)
+      - ENABLE_SPEECH_ENHANCEMENT=${ENABLE_SPEECH_ENHANCEMENT:-True}
+      - ENHANCEMENT_MODEL=${ENHANCEMENT_MODEL:-speechbrain/sepformer-dns4-16k-enhancement}
       # MDX-Net Vocal Separation
       - ENABLE_VOCAL_SEPARATION=${ENABLE_VOCAL_SEPARATION:-True}
       - MDX_MODEL=${MDX_MODEL:-UVR-MDX-NET-Voc_FT}

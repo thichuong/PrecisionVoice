@@ -16,7 +16,9 @@ torchaudio>=2.1.0
 
 # AI/ML - Vocal Separation
 audio-separator[cpu]>=0.17.0
-denoiser>=0.1.4
+
+# AI/ML - Speech Enhancement (SpeechBrain SepFormer)
+speechbrain>=1.0.0
 
 # AI/ML - Voice Activity Detection
 silero-vad>=5.1.0

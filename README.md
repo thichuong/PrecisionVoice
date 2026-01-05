@@ -16,12 +16,14 @@ A production-ready Speech-to-Text and Speaker Diarization web application using 
 
 ## Features
 
-- 🎙️ Speech-to-Text using `kiendt/PhoWhisper-large-ct2` (optimized for Vietnamese)
+- 🎙️ Speech-to-Text using `erax-ai/EraX-WoW-Turbo-V1.1-CT2` (8x faster, 8 Vietnamese dialects)
 - 👥 Speaker Diarization using `pyannote/speaker-diarization-3.1`
-- 🧼 Advanced Denoising using Facebook's `Denoiser` (dns64)
+- 🧼 Speech Enhancement using `SpeechBrain SepFormer DNS4` (noise + reverb removal)
+- 🔇 Voice Activity Detection using `Silero VAD v5` (prevents hallucination)
 - 🎤 Vocal Isolation using `MDX-Net` (UVR-MDX-NET-Voc_FT)
 - 🔄 Automatic speaker-transcript alignment
 - 📥 Download results in TXT or SRT format
+- 🐳 Docker-ready with persistent model caching and GPU support
 - 🐳 Docker-ready with persistent model caching and GPU support
 
 ## Quick Start
@@ -51,20 +53,22 @@ A production-ready Speech-to-Text and Speaker Diarization web application using 
 
 The system uses a state-of-the-art multi-stage pipeline to ensure maximum accuracy:
 
-1. **Speech Enhancement**: Background noise, hums, and interference are removed using Facebook's `Denoiser` (Deep Learning Wave-U-Net).
-2. **Vocal Isolation**: Vocals are stripped from any remaining background music or non-speech sounds using `MDX-Net`.
-3. **Refinement**: Subtle highpass filtering and EBU R128 loudness normalization for consistent volume.
-4. **Transcription**: High-precision Vietnamese transcription using `PhoWhisper`.
-5. **Diarization**: Segmenting audio by speaker.
-6. **Alignment**: Merging transcripts with speaker segments.
+1. **Speech Enhancement**: Background noise and reverb are removed using `SpeechBrain SepFormer` (DNS4 Challenge winner).
+2. **Vocal Isolation**: Vocals are separated from background music using `MDX-Net`.
+3. **VAD Filtering**: Silence is removed using `Silero VAD v5` to prevent ASR hallucination.
+4. **Refinement**: Highpass filtering and EBU R128 loudness normalization.
+5. **Transcription**: High-precision Vietnamese transcription using `PhoWhisper`.
+6. **Diarization**: Segmenting audio by speaker using `Pyannote 3.1`.
+7. **Alignment**: Merging transcripts with speaker segments + timestamp reconstruction.
 
 ## Configuration
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `HF_TOKEN` | - | Required for Pyannote models |
-| `ENABLE_DENOISER` | `True` | Toggle Facebook speech enhancement |
-| `DENOISER_MODEL` | `dns64` | Model for denoising |
+| `ENABLE_SPEECH_ENHANCEMENT` | `True` | Toggle SpeechBrain speech enhancement |
+| `ENHANCEMENT_MODEL` | `speechbrain/sepformer-dns4-16k-enhancement` | Model for speech enhancement |
+| `ENABLE_SILERO_VAD` | `True` | Toggle Silero VAD for hallucination prevention |
 | `ENABLE_VOCAL_SEPARATION` | `True` | Toggle MDX-Net vocal isolation |
 | `MDX_MODEL` | `UVR-MDX-NET-Voc_FT` | Model for vocal separation |
 | `DEVICE` | `auto` | `cuda`, `cpu`, or `auto` |

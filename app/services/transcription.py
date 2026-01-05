@@ -1,6 +1,6 @@
 """
 Transcription service using faster-whisper.
-Loads the suzii/vi-whisper-large-v3-turbo-v1-ct2 model for Vietnamese STT.
+Loads the EraX-WoW-Turbo-V1.1-CT2 model for Vietnamese STT (8x faster, 8 regional dialects).
 Returns word-level timestamps for precision alignment.
 """
 import logging

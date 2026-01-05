@@ -22,16 +22,16 @@ class Settings(BaseSettings):
     hf_token: str = ""
     enable_noise_reduction: bool = True
     
-    # Denoising (Speech Enhancement)
-    enable_denoiser: bool = True
-    denoiser_model: str = "dns64"
+    # Speech Enhancement (SpeechBrain SepFormer)
+    enable_speech_enhancement: bool = True
+    enhancement_model: str = "speechbrain/sepformer-dns4-16k-enhancement"
     
     # MDX-Net Vocal Separation
     enable_vocal_separation: bool = True
     mdx_model: str = "Kim_Vocal_2.onnx"  # High quality vocal isolation
     
     # Model settings
-    whisper_model: str = "kiendt/PhoWhisper-large-ct2"
+    whisper_model: str = "erax-ai/EraX-WoW-Turbo-V1.1-CT2"
     diarization_model: str = "pyannote/speaker-diarization-3.1"
     
     # Device settings

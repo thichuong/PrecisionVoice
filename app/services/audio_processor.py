@@ -13,7 +13,7 @@ import ffmpeg
 
 from app.core.config import get_settings
 from app.services.vocal_separator import VocalSeparator
-from app.services.denoiser import DenoiserService
+from app.services.denoiser import EnhancementService
 from app.services.vad import VADService, SpeechSegment
 
 logger = logging.getLogger(__name__)
@@ -207,13 +207,13 @@ class AudioProcessor:
         vocals_path = None
         
         try:
-            # Step 1: Denoising (Speech Enhancement)
-            if settings.enable_denoiser:
-                denoised_path = await DenoiserService.enhance_audio(original_path)
-                source_for_separation = denoised_path
+            # Step 1: Speech Enhancement (SpeechBrain SepFormer)
+            if settings.enable_speech_enhancement:
+                enhanced_path = await EnhancementService.enhance_audio(original_path)
+                source_for_separation = enhanced_path
             else:
                 source_for_separation = original_path
-                denoised_path = None
+                enhanced_path = None
                 
             # Step 2: Vocal separation using MDX-Net
             if settings.enable_vocal_separation:
@@ -241,9 +241,9 @@ class AudioProcessor:
             
             # Cleanup intermediate files (but keep wav_path and vad_filtered_path for processing)
             to_cleanup = [original_path]
-            if denoised_path and denoised_path != original_path:
-                to_cleanup.append(denoised_path)
-            if vocals_path and vocals_path not in [original_path, denoised_path]:
+            if enhanced_path and enhanced_path != original_path:
+                to_cleanup.append(enhanced_path)
+            if vocals_path and vocals_path not in [original_path, enhanced_path]:
                 to_cleanup.append(vocals_path)
             # Note: Do NOT cleanup wav_path or vad_filtered_path - they are returned for further processing
                 
@@ -255,8 +255,8 @@ class AudioProcessor:
         except Exception as e:
             # Cleanup on error
             await cls.cleanup_files(original_path)
-            if 'denoised_path' in locals() and denoised_path and denoised_path != original_path:
-                await cls.cleanup_files(denoised_path)
-            if 'vocals_path' in locals() and vocals_path and vocals_path not in [original_path, denoised_path]:
+            if 'enhanced_path' in locals() and enhanced_path and enhanced_path != original_path:
+                await cls.cleanup_files(enhanced_path)
+            if 'vocals_path' in locals() and vocals_path and vocals_path not in [original_path, enhanced_path]:
                 await cls.cleanup_files(vocals_path)
             raise

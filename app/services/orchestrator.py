@@ -52,7 +52,7 @@ class PipelineOrchestrator:
         start_time = time.time()
         
         # Step 1: Pre-processing info
-        logger.info(f"[Step 1/5] Audio pre-processing completed (MDX-Net: {settings.enable_vocal_separation}, Denoise: {settings.enable_noise_reduction})")
+        logger.info(f"[Step 1/5] Audio pre-processing completed (MDX-Net: {settings.enable_vocal_separation}, SpeechBrain: {settings.enable_speech_enhancement})")
         
         # Step 2: VAD info
         vad_enabled = settings.enable_silero_vad and original_segments
