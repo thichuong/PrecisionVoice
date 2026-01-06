@@ -23,7 +23,8 @@ data/uploads/*
 data/processed/*
 !data/uploads/.gitkeep
 !data/processed/.gitkeep
-
+data/pretrained_models/*
+!data/pretrained_models/.gitkeep
 # Docker
 .docker/
 
