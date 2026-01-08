@@ -1,21 +1,19 @@
 """
 API routes for the transcription service.
 """
-import json
-import time
 import logging
+import time
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks, Form
+from fastapi.responses import FileResponse
 
 from app.core.config import get_settings
-from app.schemas.models import TranscriptionResponse, ErrorResponse, HealthResponse
+from app.schemas.models import TranscriptionResponse, HealthResponse
 from app.services.audio_processor import AudioProcessor, AudioProcessingError
-from app.services.transcription import TranscriptionService
+from app.services.transcription import TranscriptionService, AVAILABLE_MODELS
 from app.services.diarization import DiarizationService
-from app.services.alignment import AlignmentService
-from app.services.orchestrator import PipelineOrchestrator
+from app.services.processor import Processor
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -33,77 +31,100 @@ async def health_check():
     )
 
 
-from fastapi.responses import FileResponse, StreamingResponse
+@router.get("/api/models")
+async def get_models():
+    """Get available Whisper models."""
+    return {
+        "models": list(AVAILABLE_MODELS.keys()),
+        "default": settings.default_whisper_model
+    }
 
-# ... (rest of imports)
 
 @router.post("/api/transcribe", response_model=TranscriptionResponse)
 async def transcribe_audio(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(..., description="Audio file to transcribe")
+    file: UploadFile = File(..., description="Audio file to transcribe"),
+    model: str = Form(default="EraX-WoW-Turbo", description="Whisper model to use"),
+    language: str = Form(default="vi", description="Language code"),
+    merge_segments: bool = Form(default=True, description="Merge consecutive speaker segments"),
 ):
     """
     Upload and transcribe an audio file.
-    Status updates are logged on the server.
+    
+    Uses diarize-first workflow:
+    1. Diarization to identify speakers
+    2. Transcribe each speaker segment
+    3. Return combined result
     """
-    wav_path = None
-    vad_filtered_path = None
+    upload_path = None
     
     try:
         # Read file content
         file_content = await file.read()
         
-        # Validate and process audio
+        # Validate
         try:
             AudioProcessor.validate_file(file.filename or "audio.wav", len(file_content))
         except AudioProcessingError as e:
             raise HTTPException(status_code=400, detail=str(e))
         
-        # Save, convert to WAV, and apply VAD filtering
-        wav_path, vad_filtered_path, duration, original_segments, adjusted_segments = await AudioProcessor.process_upload(
-            file_content, 
-            file.filename or "audio.wav"
+        # Save upload
+        upload_path = await AudioProcessor.save_upload(file_content, file.filename or "audio.wav")
+        
+        # Process with new workflow
+        logger.info(f"Processing audio with model={model}, language={language}")
+        result = await Processor.process_audio(
+            audio_path=upload_path,
+            model_name=model,
+            language=language,
+            merge_segments=merge_segments,
         )
         
-        # Run orchestrated pipeline (Whisper on VAD-filtered + Pyannote on full -> Alignment)
-        logger.info("Executing orchestrated pipeline with Silero VAD...")
-        response = await PipelineOrchestrator.process_audio(
-            wav_path,
-            vad_filtered_path,
-            duration,
-            original_segments,
-            adjusted_segments
+        # Save output files
+        txt_filename = f"{upload_path.stem}_transcript.txt"
+        srt_filename = f"{upload_path.stem}_transcript.srt"
+        
+        txt_path = settings.processed_dir / txt_filename
+        srt_path = settings.processed_dir / srt_filename
+        
+        txt_path.write_text(result.txt_content, encoding="utf-8")
+        srt_path.write_text(result.srt_content, encoding="utf-8")
+        
+        # Schedule cleanup
+        background_tasks.add_task(cleanup_files, upload_path)
+        
+        # Build response
+        return TranscriptionResponse(
+            success=True,
+            segments=[
+                {
+                    "start": seg.start,
+                    "end": seg.end,
+                    "speaker": seg.speaker,
+                    "text": seg.text
+                }
+                for seg in result.segments
+            ],
+            speaker_count=result.speaker_count,
+            duration=result.duration,
+            processing_time=result.processing_time,
+            download_txt=f"/api/download/{txt_filename}",
+            download_srt=f"/api/download/{srt_filename}",
         )
-        
-        # Schedule cleanup in background (both wav_path and vad_filtered_path if different)
-        paths_to_cleanup = [wav_path]
-        if vad_filtered_path and vad_filtered_path != wav_path:
-            paths_to_cleanup.append(vad_filtered_path)
-        background_tasks.add_task(cleanup_files, *paths_to_cleanup)
-        
-        return response
         
     except HTTPException:
         raise
     except Exception as e:
         logger.exception("Processing failed")
-        # Cleanup any processed files on error
-        paths_to_cleanup = []
-        if wav_path and wav_path.exists():
-            paths_to_cleanup.append(wav_path)
-        if vad_filtered_path and vad_filtered_path != wav_path and vad_filtered_path.exists():
-            paths_to_cleanup.append(vad_filtered_path)
-        if paths_to_cleanup:
-            background_tasks.add_task(cleanup_files, *paths_to_cleanup)
+        if upload_path and upload_path.exists():
+            background_tasks.add_task(cleanup_files, upload_path)
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
 
 
-
 @router.get("/api/download/{filename}")
-async def download_file(filename: str, background_tasks: BackgroundTasks):
+async def download_file(filename: str):
     """
     Download a generated transcript file.
-    
     Supports: .txt, .srt files
     """
     # Security: only allow specific extensions and no path traversal
@@ -118,9 +139,6 @@ async def download_file(filename: str, background_tasks: BackgroundTasks):
     # Determine media type
     media_type = "text/plain" if filename.endswith('.txt') else "application/x-subrip"
     
-    # Schedule cleanup after download (give some time for download to complete)
-    # Note: In production, you might want a separate cleanup job
-    
     return FileResponse(
         path=filepath,
         filename=filename,
@@ -132,7 +150,7 @@ async def cleanup_files(*paths: Path):
     """Background task to cleanup temporary files."""
     import asyncio
     
-    # Wait a bit before cleanup to ensure files are not in use
+    # Wait a bit before cleanup
     await asyncio.sleep(5)
     
     await AudioProcessor.cleanup_files(*paths)

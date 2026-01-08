@@ -51,9 +51,9 @@ class TranscriptionResponse(BaseModel):
     """Response containing the transcription results."""
     success: bool = Field(..., description="Whether transcription succeeded")
     message: str = Field(default="", description="Status message")
-    segments: list[TranscriptSegment] = Field(default_factory=list, description="Transcript segments with speakers")
+    segments: list[dict] = Field(default_factory=list, description="Transcript segments with speakers")
     duration: float = Field(default=0.0, description="Audio duration in seconds")
-    num_speakers: int = Field(default=0, description="Number of detected speakers")
+    speaker_count: int = Field(default=0, description="Number of detected speakers")
     processing_time: float = Field(default=0.0, description="Processing time in seconds")
     download_txt: Optional[str] = Field(default=None, description="Download URL for TXT file")
     download_srt: Optional[str] = Field(default=None, description="Download URL for SRT file")

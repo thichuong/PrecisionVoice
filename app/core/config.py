@@ -4,7 +4,7 @@ Application configuration using Pydantic Settings.
 import os
 from pathlib import Path
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Dict
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -20,18 +20,15 @@ class Settings(BaseSettings):
     
     # HuggingFace
     hf_token: str = ""
-    enable_noise_reduction: bool = True
     
-    # Speech Enhancement (SpeechBrain SepFormer)
-    enable_speech_enhancement: bool = True
-    enhancement_model: str = "speechbrain/sepformer-dns4-16k-enhancement"
+    # Available Whisper models
+    available_whisper_models: Dict[str, str] = {
+        "EraX-WoW-Turbo": "erax-ai/EraX-WoW-Turbo-V1.1-CT2",
+        "PhoWhisper Large": "kiendt/PhoWhisper-large-ct2"
+    }
+    default_whisper_model: str = "EraX-WoW-Turbo"
     
-    # MDX-Net Vocal Separation
-    enable_vocal_separation: bool = True
-    mdx_model: str = "Kim_Vocal_2.onnx"  # High quality vocal isolation
-    
-    # Model settings
-    whisper_model: str = "erax-ai/EraX-WoW-Turbo-V1.1-CT2"
+    # Diarization model
     diarization_model: str = "pyannote/speaker-diarization-3.1"
     
     # Device settings
@@ -46,25 +43,8 @@ class Settings(BaseSettings):
     sample_rate: int = 16000
     channels: int = 1  # Mono
     
-    # Optimization parameters
-    noise_reduction_level: float = 12.0  # Used by anlmdn
-    enable_loudnorm: bool = True
-    
-    # VAD parameters (Whisper built-in)
-    vad_threshold: float = 0.5
-    vad_min_speech_duration_ms: int = 250
-    vad_min_silence_duration_ms: int = 500
-    
-    # Silero VAD v5 Settings (Pre-ASR filtering)
-    enable_silero_vad: bool = True
-    silero_vad_threshold: float = 0.5  # Speech probability threshold (0.0-1.0)
-    silero_vad_min_speech_ms: int = 250  # Minimum speech duration to keep
-    silero_vad_min_silence_ms: int = 100  # Minimum silence to split segments
-    silero_vad_speech_pad_ms: int = 30  # Padding around speech segments
-    
     # Post-processing
     merge_threshold_s: float = 0.5  # Merge segments from same speaker if gap < this
-    min_segment_duration_s: float = 0.3  # Remove segments shorter than this
     
     # Server settings
     host: str = "0.0.0.0"

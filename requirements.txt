@@ -7,30 +7,21 @@ aiofiles>=23.2.1
 
 # AI/ML - Speech-to-Text
 faster-whisper>=1.0.0
-ctranslate2>=4.0.0
 
-# AI/ML - Speaker Diarization
-pyannote.audio>=3.1.0
+# AI/ML - Speaker Diarization (from notebook cell #2)
+pyannote.audio>=3.3.1
 torch>=2.1.0
 torchaudio>=2.1.0
-
-# AI/ML - Vocal Separation
-audio-separator[cpu]>=0.17.0
-
-# AI/ML - Speech Enhancement (SpeechBrain SepFormer)
-speechbrain>=1.0.0
-
-# AI/ML - Voice Activity Detection
-silero-vad>=5.1.0
+torchvision
+lightning
+torchmetrics
 
 # Audio processing
-ffmpeg-python>=0.2.0
-pydub>=0.25.1
+librosa>=0.10.0
 
 # Configuration
 pydantic-settings>=2.1.0
 python-dotenv>=1.0.0
 
 # Utilities
-aiohttp>=3.9.0
 numpy>=1.24.0

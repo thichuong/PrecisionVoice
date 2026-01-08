@@ -1,19 +1,25 @@
 """
 Transcription service using faster-whisper.
-Loads the EraX-WoW-Turbo-V1.1-CT2 model for Vietnamese STT (8x faster, 8 regional dialects).
-Returns word-level timestamps for precision alignment.
+Supports multiple Vietnamese Whisper models with caching.
 """
 import logging
-from pathlib import Path
-from typing import List, Optional
+from typing import Dict, Optional, List
 from dataclasses import dataclass
 
+import numpy as np
 from faster_whisper import WhisperModel
 
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+# Available Whisper models for Vietnamese
+AVAILABLE_MODELS = {
+    "EraX-WoW-Turbo": "erax-ai/EraX-WoW-Turbo-V1.1-CT2",
+    "PhoWhisper Large": "kiendt/PhoWhisper-large-ct2"
+}
 
 
 @dataclass
@@ -24,145 +30,157 @@ class WordTimestamp:
     end: float
 
 
-@dataclass
-class TranscriptSegmentRaw:
-    """Raw segment from Whisper transcription with word-level data."""
-    start: float
-    end: float
-    text: str
-    words: List[WordTimestamp]
-
-
 class TranscriptionService:
     """
     Service for speech-to-text transcription using faster-whisper.
-    Implements singleton pattern for model caching.
-    Returns word-level timestamps for precision speaker alignment.
+    Supports multiple models with caching.
     """
     
-    _instance: Optional["TranscriptionService"] = None
-    _model: Optional[WhisperModel] = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    _models: Dict[str, WhisperModel] = {}
     
     @classmethod
-    def get_model(cls) -> WhisperModel:
+    def get_model(cls, model_name: str = "EraX-WoW-Turbo") -> WhisperModel:
         """
-        Get or load the Whisper model (lazy loading with caching).
+        Get or load a Whisper model (lazy loading with caching).
         
+        Args:
+            model_name: Name of the model from AVAILABLE_MODELS
+            
         Returns:
             Loaded WhisperModel instance
         """
-        if cls._model is None:
-            logger.debug(f"Loading Whisper model: {settings.whisper_model}")
-            logger.debug(f"Device: {settings.resolved_device}, Compute type: {settings.resolved_compute_type}")
-            
-            cls._model = WhisperModel(
-                settings.whisper_model,
-                device=settings.resolved_device,
-                compute_type=settings.resolved_compute_type,
-                download_root=None,  # Use default HF cache
-            )
-            
-            logger.debug("Whisper model loaded successfully")
+        cache_key = f"{model_name}_{settings.resolved_compute_type}"
         
-        return cls._model
-    
-    @classmethod
-    def is_loaded(cls) -> bool:
-        """Check if model is loaded."""
-        return cls._model is not None
-    
-    @classmethod
-    def transcribe(
-        cls,
-        audio_path: Path,
-        language: str = "vi",
-        initial_prompt: Optional[str] = None
-    ) -> List[WordTimestamp]:
-        """
-        Transcribe audio file with word-level timestamps.
+        if cache_key in cls._models:
+            return cls._models[cache_key]
         
-        Args:
-            audio_path: Path to WAV audio file
-            language: Language code (default: Vietnamese)
-            initial_prompt: Optional prompt for context
-            
-        Returns:
-            List of WordTimestamp with precise timing for each word
-        """
-        model = cls.get_model()
+        # Get model path
+        if model_name in AVAILABLE_MODELS:
+            model_path = AVAILABLE_MODELS[model_name]
+        else:
+            # Fallback to first available model
+            model_name = list(AVAILABLE_MODELS.keys())[0]
+            model_path = AVAILABLE_MODELS[model_name]
         
-        logger.debug(f"Transcribing: {audio_path}")
+        logger.info(f"Loading Whisper model: {model_name} ({model_path})")
+        logger.debug(f"Device: {settings.resolved_device}, Compute type: {settings.resolved_compute_type}")
         
-        # Run transcription with word timestamps - CRITICAL for precision alignment
-        segments_generator, info = model.transcribe(
-            str(audio_path),
-            language=language,
-            initial_prompt=initial_prompt,
-            word_timestamps=True,  # CRITICAL: Enable word-level timestamps
-            vad_filter=True,  # Re-enabled for optimization
-            vad_parameters=dict(
-                threshold=settings.vad_threshold,
-                min_speech_duration_ms=settings.vad_min_speech_duration_ms,
-                min_silence_duration_ms=settings.vad_min_silence_duration_ms,
-            ),
-            beam_size=5,
-            best_of=5,
+        model = WhisperModel(
+            model_path,
+            device=settings.resolved_device,
+            compute_type=settings.resolved_compute_type,
         )
         
-        # Extract all words with timestamps
-        all_words = []
-        segment_count = 0
+        cls._models[cache_key] = model
+        logger.info(f"✅ Whisper model loaded: {model_name}")
         
-        for segment in segments_generator:
-            segment_count += 1
-            if segment.words:
-                for word in segment.words:
-                    all_words.append(WordTimestamp(
-                        word=word.word.strip(),
-                        start=word.start,
-                        end=word.end
-                    ))
-        
-        logger.info(f"Transcription complete: {segment_count} segments, {len(all_words)} words, detected language: {info.language}")
-        
-        return all_words
+        return model
     
     @classmethod
-    async def transcribe_async(
+    def is_loaded(cls, model_name: str = "EraX-WoW-Turbo") -> bool:
+        """Check if a model is loaded."""
+        cache_key = f"{model_name}_{settings.resolved_compute_type}"
+        return cache_key in cls._models
+    
+    @classmethod
+    def preload_model(cls, model_name: str = None) -> None:
+        """Preload a model during startup."""
+        if model_name is None:
+            model_name = settings.default_whisper_model
+        try:
+            cls.get_model(model_name)
+        except Exception as e:
+            logger.error(f"Failed to preload Whisper model: {e}")
+            raise
+    
+    @classmethod
+    def transcribe_segment(
         cls,
-        audio_path: Path,
+        audio_array: np.ndarray,
+        model_name: str = "EraX-WoW-Turbo",
         language: str = "vi",
-        initial_prompt: Optional[str] = None
-    ) -> List[WordTimestamp]:
+        vad_options: Optional[dict] = None,
+        beam_size: int = 5,
+        temperature: float = 0.0,
+        best_of: int = 5,
+        initial_prompt: Optional[str] = None,
+    ) -> str:
         """
-        Async wrapper for transcription (runs in thread pool).
+        Transcribe a numpy audio array segment.
         
         Args:
-            audio_path: Path to WAV audio file
-            language: Language code
-            initial_prompt: Optional prompt
+            audio_array: Audio data as numpy array (16kHz mono)
+            model_name: Whisper model to use
+            language: Language code (default: Vietnamese)
+            vad_options: VAD filter options dict
+            beam_size: Beam size for decoding
+            temperature: Sampling temperature
+            best_of: Number of candidates
+            initial_prompt: Optional context prompt
             
         Returns:
-            List of WordTimestamp
+            Transcribed text
+        """
+        model = cls.get_model(model_name)
+        
+        # Prepare VAD filter
+        vad_filter = vad_options if vad_options else False
+        
+        # Process prompt
+        prompt = initial_prompt.strip() if initial_prompt and initial_prompt.strip() else None
+        
+        # Run transcription
+        segments_gen, info = model.transcribe(
+            audio_array,
+            language=language if language != "auto" else None,
+            beam_size=beam_size,
+            vad_filter=vad_filter,
+            temperature=temperature,
+            best_of=best_of,
+            initial_prompt=prompt,
+            word_timestamps=False,
+        )
+        
+        # Collect text
+        text_parts = []
+        for seg in segments_gen:
+            text_parts.append(seg.text.strip())
+        
+        return " ".join(text_parts).strip()
+    
+    @classmethod
+    async def transcribe_segment_async(
+        cls,
+        audio_array: np.ndarray,
+        model_name: str = "EraX-WoW-Turbo",
+        language: str = "vi",
+        vad_options: Optional[dict] = None,
+        beam_size: int = 5,
+        temperature: float = 0.0,
+        best_of: int = 5,
+        initial_prompt: Optional[str] = None,
+    ) -> str:
+        """
+        Async wrapper for transcription (runs in thread pool).
         """
         import asyncio
         
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
             None,
-            lambda: cls.transcribe(audio_path, language, initial_prompt)
+            lambda: cls.transcribe_segment(
+                audio_array,
+                model_name,
+                language,
+                vad_options,
+                beam_size,
+                temperature,
+                best_of,
+                initial_prompt
+            )
         )
     
     @classmethod
-    def preload_model(cls) -> None:
-        """Preload the model during startup."""
-        try:
-            cls.get_model()
-        except Exception as e:
-            logger.error(f"Failed to preload Whisper model: {e}")
-            raise
+    def get_available_models(cls) -> Dict[str, str]:
+        """Return list of available models."""
+        return AVAILABLE_MODELS.copy()

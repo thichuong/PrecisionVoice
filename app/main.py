@@ -35,16 +35,17 @@ async def lifespan(app: FastAPI):
     """
     logger.info("Starting PrecisionVoice application...")
     logger.info(f"Device: {settings.resolved_device}")
-    logger.info(f"Whisper model: {settings.whisper_model}")
+    logger.info(f"Default Whisper model: {settings.default_whisper_model}")
     logger.info(f"Diarization model: {settings.diarization_model}")
     
-    # Preload models (optional - can be disabled for faster startup)
+    # Preload default Whisper model
     try:
         logger.info("Preloading Whisper model...")
         TranscriptionService.preload_model()
     except Exception as e:
         logger.error(f"Failed to preload Whisper model: {e}")
     
+    # Preload diarization pipeline
     try:
         if settings.hf_token:
             logger.info("Preloading diarization pipeline...")
@@ -52,7 +53,7 @@ async def lifespan(app: FastAPI):
         else:
             logger.warning("HF_TOKEN not set, diarization will not be available")
     except Exception as e:
-        logger.warning(f"Diarization preload failed (will try again on first use): {e}")
+        logger.warning(f"Diarization preload failed: {e}")
     
     logger.info("Application startup complete")
     
@@ -65,14 +66,14 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="PrecisionVoice",
     description="Speech-to-Text and Speaker Diarization API",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
